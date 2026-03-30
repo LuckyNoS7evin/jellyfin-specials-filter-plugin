@@ -10,11 +10,11 @@
     "versions": [
       {
         "version": "1.0.0.0",
-        "changelog": "",
+        "changelog": "Fix dispatch step: move secret to job env so if condition evaluates correctly\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
         "targetAbi": "10.11.6.0",
         "sourceUrl": "https://luckynos7evin.github.io/jellyfin-specials-filter-plugin/releases/specials-filter_1.0.0.0.zip",
-        "checksum": "ea270974f35fb13b794e85155aaef38c",
-        "timestamp": "2026-03-30T23:53:19+01:00"
+        "checksum": "4a567694707b944d16d848ff12b56454",
+        "timestamp": "2026-03-31T00:02:05+01:00"
       }
     ]
   }
