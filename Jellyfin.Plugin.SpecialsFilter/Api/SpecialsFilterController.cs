@@ -36,8 +36,8 @@ public class ShowInfo
     /// <summary>Gets or sets the series display name.</summary>
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>Gets or sets the handling override for this show.</summary>
-    public SpecialsHandling Handling { get; set; } = SpecialsHandling.Default;
+    /// <summary>Gets or sets the handling override for this show (0=Default, 1=Remove, 2=Keep).</summary>
+    public int Handling { get; set; }
 }
 
 /// <summary>
@@ -151,7 +151,7 @@ public class SpecialsFilterController : ControllerBase
         {
             Id = s.Id.ToString(),
             Name = s.Name ?? string.Empty,
-            Handling = showSettingsMap.TryGetValue(s.Id.ToString(), out var h) ? h : SpecialsHandling.Default
+            Handling = (int)(showSettingsMap.TryGetValue(s.Id.ToString(), out var h) ? h : SpecialsHandling.Default)
         })
         .OrderBy(s => s.Name)
         .ToList();
