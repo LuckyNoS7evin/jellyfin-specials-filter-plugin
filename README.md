@@ -8,7 +8,7 @@ Metadata providers (TVDB, TMDB) often include large numbers of specials for show
 
 ## How it works
 
-After every library scan completes, the plugin checks each configured library and show, then removes Season 0 items from Jellyfin's database for anything you've flagged. **No files are ever deleted from disk.** Because metadata is re-fetched on every scan, the plugin runs after every scan to keep specials removed.
+After every library scan completes, the plugin checks each configured library and shows, then removes Season 0 items from Jellyfin's database for anything you've flagged. **No files are ever deleted from disk.** Because metadata is re-fetched on every scan, the plugin runs after every scan to keep specials removed.
 
 ## Configuration
 
