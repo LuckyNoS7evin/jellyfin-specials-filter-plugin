@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.0.1",
+        "changelog": "Bump to 1.0.0.1; skip zip overwrite if version already published\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://luckynos7evin.github.io/jellyfin-specials-filter-plugin/releases/specials-filter_1.0.0.1.zip",
+        "checksum": "d79abe747843612bab6a0d61d7b5279a",
+        "timestamp": "2026-03-31T00:06:52+01:00"
+      },
+      {
         "version": "1.0.0.0",
         "changelog": "Fix dispatch step: move secret to job env so if condition evaluates correctly\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
         "targetAbi": "10.11.6.0",
