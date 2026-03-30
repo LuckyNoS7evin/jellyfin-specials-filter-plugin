@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.0.3",
+        "changelog": "Fix show handling dropdown empty - serialize Handling as int not string\n\nJellyfin's JSON serializer outputs enums as strings (e.g. 'Default', 'Remove').\nThe UI compared against integers (0, 1, 2) causing no option to match and the\ndropdown appearing blank. Changed ShowInfo.Handling to int so it always\nserializes as a number matching the option values in the select element.\n\nBumps to 1.0.0.3.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://luckynos7evin.github.io/jellyfin-specials-filter-plugin/releases/specials-filter_1.0.0.3.zip",
+        "checksum": "a6a81683625b45adbd5988f5a3fe93b0",
+        "timestamp": "2026-03-31T00:35:38+01:00"
+      },
+      {
         "version": "1.0.0.2",
         "changelog": "Bump version to 1.0.0.2\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
         "targetAbi": "10.11.6.0",
