@@ -512,28 +512,43 @@
 
         // ── Init ──────────────────────────────────────────────────────────────────
 
+        // Attach static event listeners once at script load time (not inside pageshow,
+        // which fires on every navigation and would stack up duplicate handlers).
+        document.getElementById('showLibrarySelect').addEventListener('change', function () {
+            allShows = [];
+            document.getElementById('showsList').innerHTML = '';
+            document.getElementById('showsList').style.display = 'none';
+            document.getElementById('noShowsMsg').style.display = 'none';
+            document.getElementById('selectLibraryMsg').style.display = 'none';
+            if (this.value) {
+                loadShows(this.value);
+            } else {
+                document.getElementById('selectLibraryMsg').style.display = '';
+            }
+        });
+
+        document.getElementById('showSearch').addEventListener('input', function () {
+            filterShows(this.value);
+        });
+
+        document.getElementById('saveBtn').addEventListener('click', saveConfig);
+
         document.getElementById('SpecialsFilterConfigPage').addEventListener('pageshow', function () {
+            // Reset state and UI on every navigation to the page so saved settings always reload fresh.
+            state.librarySettings = {};
+            state.showSettings = {};
+            state.episodeBlacklist = {};
+            allShows = [];
+
+            document.getElementById('showLibrarySelect').value = '';
+            document.getElementById('showsList').innerHTML = '';
+            document.getElementById('showsList').style.display = 'none';
+            document.getElementById('noShowsMsg').style.display = 'none';
+            document.getElementById('selectLibraryMsg').style.display = '';
+            document.getElementById('showSearch').value = '';
+
             loadConfig();
             loadLibraries();
-
-            document.getElementById('showLibrarySelect').addEventListener('change', function () {
-                allShows = [];
-                document.getElementById('showsList').innerHTML = '';
-                document.getElementById('showsList').style.display = 'none';
-                document.getElementById('noShowsMsg').style.display = 'none';
-                document.getElementById('selectLibraryMsg').style.display = 'none';
-                if (this.value) {
-                    loadShows(this.value);
-                } else {
-                    document.getElementById('selectLibraryMsg').style.display = '';
-                }
-            });
-
-            document.getElementById('showSearch').addEventListener('input', function () {
-                filterShows(this.value);
-            });
-
-            document.getElementById('saveBtn').addEventListener('click', saveConfig);
         });
     })();
     </script>
