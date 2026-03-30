@@ -1,0 +1,21 @@
+[
+  {
+    "guid": "c7f2d3a1-4b8e-4f9d-a2c5-1e3f7b9d0e2a",
+    "name": "Specials Filter",
+    "description": "Removes specials (Season 0) from configured TV show libraries after each library scan. Configurable per library and per show.",
+    "overview": "Removes specials (Season 0) from configured TV show libraries after each library scan. Configurable per library and per show.",
+    "owner": "LuckyNoS7evin",
+    "category": "General",
+    "imageUrl": "",
+    "versions": [
+      {
+        "version": "1.0.0.0",
+        "changelog": "Initial release of Specials Filter plugin\n\nPer-library and per-show toggle to remove Season 0 (Specials) after\nevery library scan. Configurable per library, per show (Default/Remove/Keep),\nand per individual special episode (blacklist). No files are deleted from disk.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://luckynos7evin.github.io/jellyfin-specials-filter-plugin/releases/specials-filter_1.0.0.0.zip",
+        "checksum": "4f34a674fc067f35f29dcbf4cf432913",
+        "timestamp": "2026-03-30T23:24:39+01:00"
+      }
+    ]
+  }
+]
