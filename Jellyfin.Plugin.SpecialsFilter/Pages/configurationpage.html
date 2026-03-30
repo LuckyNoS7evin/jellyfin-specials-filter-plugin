@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+    <title>Specials Filter</title>
+</head>
+<body>
+<div id="SpecialsFilterConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
+    <div data-role="content">
+        <div class="content-primary">
+            <div class="verticalSection verticalSection-extrabottompadding">
+                <div class="sectionTitleContainer flex align-items-center">
+                    <h2 class="sectionTitle">Specials Filter</h2>
+                </div>
+                <p>
+                    Configure which TV libraries and shows should have their Specials (Season 0) removed
+                    after each library scan. Only library records are removed — no files are ever deleted from disk.
+                    Specials will be removed again automatically after every subsequent scan.
+                </p>
+
+                <!-- Library Settings -->
+                <div class="verticalSection">
+                    <h3 class="sectionTitle" style="font-size:1.05em; margin-bottom:0.5em;">Libraries</h3>
+                    <p style="opacity:0.75; font-size:0.9em; margin-bottom:1em;">
+                        Toggle which TV libraries should have specials removed. Shows inside a library inherit
+                        this setting unless overridden below.
+                    </p>
+                    <div id="librariesLoading"><p>Loading libraries…</p></div>
+                    <div id="librariesList" style="display:none;"></div>
+                    <div id="noLibrariesMsg" style="display:none;"><p>No TV libraries found.</p></div>
+                </div>
+
+                <div class="verticalSection" style="margin-top:2em;">
+                    <h3 class="sectionTitle" style="font-size:1.05em; margin-bottom:0.5em;">Per-Show Overrides</h3>
+                    <p style="opacity:0.75; font-size:0.9em; margin-bottom:1em;">
+                        Override the library setting for individual shows.
+                        <strong>Default</strong> inherits from the library.
+                        <strong>Remove</strong> always strips specials.
+                        <strong>Keep</strong> always preserves specials even if the library removes them.
+                    </p>
+
+                    <div class="inputContainer" style="max-width:400px; margin-bottom:1em;">
+                        <label for="showLibrarySelect">Show shows from library:</label>
+                        <select id="showLibrarySelect" is="emby-select" class="emby-select-withcolor emby-select">
+                            <option value="">— select a library —</option>
+                        </select>
+                    </div>
+
+                    <div class="inputContainer" style="max-width:400px; margin-bottom:1em;">
+                        <label for="showSearch">Filter shows:</label>
+                        <input type="text" id="showSearch" is="emby-input" placeholder="Type to filter…" />
+                    </div>
+
+                    <div id="showsLoading" style="display:none;"><p>Loading shows…</p></div>
+                    <div id="showsList" style="display:none;"></div>
+                    <div id="noShowsMsg" style="display:none;"><p>No shows found in this library.</p></div>
+                    <div id="selectLibraryMsg"><p style="opacity:0.6;">Select a library above to manage per-show overrides.</p></div>
+                </div>
+
+                <!-- Save -->
+                <div style="margin-top:2em;">
+                    <button is="emby-button" type="button" id="saveBtn" class="raised button-submit block" style="max-width:220px;">
+                        <span>Save Settings</span>
+                    </button>
+                    <div id="saveStatus" style="display:none; margin-top:0.75em; font-size:0.9em;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .sf-library-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            background: rgba(255,255,255,0.03);
+        }
+        .sf-library-name {
+            flex: 1;
+            font-weight: 600;
+        }
+        .sf-show-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 14px;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .sf-show-row:last-child { border-bottom: none; }
+        .sf-show-name {
+            flex: 1;
+            font-size: 0.93em;
+        }
+        .sf-shows-table {
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            overflow: hidden;
+            max-height: 480px;
+            overflow-y: auto;
+        }
+        .sf-shows-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 7px 14px;
+            background: rgba(255,255,255,0.06);
+            font-size: 0.82em;
+            font-weight: 600;
+            opacity: 0.8;
+            border-bottom: 1px solid #3a3a3a;
+        }
+        .sf-shows-header span { flex: 1; }
+        .sf-shows-header .sf-col-handling { width: 180px; flex: none; }
+        .sf-show-name-col { flex: 1; }
+        .sf-col-handling { width: 180px; flex: none; }
+        .sf-col-specials { width: 120px; flex: none; text-align: right; }
+        .sf-shows-header .sf-col-specials { width: 120px; }
+        .sf-specials-panel {
+            display: none;
+            background: rgba(0,0,0,0.2);
+            border-top: 1px solid #2a2a2a;
+            padding: 10px 16px 12px;
+        }
+        .sf-specials-panel.open { display: block; }
+        .sf-ep-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85em;
+        }
+        .sf-ep-table th {
+            text-align: left;
+            padding: 4px 8px;
+            opacity: 0.65;
+            font-size: 0.88em;
+            border-bottom: 1px solid #333;
+        }
+        .sf-ep-table td { padding: 5px 8px; border-bottom: 1px solid #222; }
+        .sf-ep-table tr:last-child td { border-bottom: none; }
+        .sf-ep-table .col-ep { width: 50px; }
+        .sf-ep-table .col-date { width: 110px; }
+        .sf-ep-table .col-remove { width: 80px; text-align: center; }
+        .sf-toggle-specials {
+            background: none;
+            border: 1px solid #555;
+            border-radius: 3px;
+            color: inherit;
+            cursor: pointer;
+            font-size: 0.8em;
+            padding: 3px 8px;
+            white-space: nowrap;
+        }
+        .sf-toggle-specials:hover { border-color: #aaa; }
+        .sf-no-specials { font-size: 0.85em; opacity: 0.55; font-style: italic; }
+        .sf-ep-blacklisted td { opacity: 0.5; }
+        .sf-status-ok { color: #4caf50; }
+        .sf-status-err { color: #f44336; }
+    </style>
+
+    <script type="text/javascript">
+    (function () {
+        // In-memory state: mirrors what will be POSTed on save.
+        var state = {
+            librarySettings: {},  // libraryId -> bool (removeSpecials)
+            showSettings: {},     // showId -> int (SpecialsHandling: 0=Default, 1=Remove, 2=Keep)
+            episodeBlacklist: {}  // episodeId -> true
+        };
+
+        var allShows = [];  // shows loaded for the currently selected library
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '';
+            try { return new Date(dateStr).toLocaleDateString(); } catch (e) { return dateStr; }
+        }
+
+        // ── API helpers ───────────────────────────────────────────────────────────
+
+        function apiGet(path) {
+            return ApiClient.getJSON(ApiClient.getUrl(path));
+        }
+
+        function apiPost(path, body) {
+            return ApiClient.ajax({
+                type: 'POST',
+                url: ApiClient.getUrl(path),
+                data: JSON.stringify(body),
+                contentType: 'application/json'
+            });
+        }
+
+        // ── Config (seed episode blacklist) ───────────────────────────────────────
+
+        function loadConfig() {
+            apiGet('SpecialsFilter/Config').then(function (cfg) {
+                (cfg.EpisodeBlacklist || []).forEach(function (id) {
+                    state.episodeBlacklist[id] = true;
+                });
+            }).catch(function (err) {
+                console.error('[SpecialsFilter] Failed to load config:', err);
+            });
+        }
+
+        // ── Libraries ─────────────────────────────────────────────────────────────
+
+        function loadLibraries() {
+            document.getElementById('librariesLoading').style.display = '';
+            document.getElementById('librariesList').style.display = 'none';
+            document.getElementById('noLibrariesMsg').style.display = 'none';
+
+            apiGet('SpecialsFilter/Libraries').then(function (libraries) {
+                document.getElementById('librariesLoading').style.display = 'none';
+
+                if (!libraries || libraries.length === 0) {
+                    document.getElementById('noLibrariesMsg').style.display = '';
+                    return;
+                }
+
+                libraries.forEach(function (lib) {
+                    state.librarySettings[lib.Id] = lib.RemoveSpecials;
+                });
+
+                renderLibraries(libraries);
+                populateLibraryDropdown(libraries);
+            }).catch(function (err) {
+                document.getElementById('librariesLoading').style.display = 'none';
+                console.error('[SpecialsFilter] Failed to load libraries:', err);
+            });
+        }
+
+        function renderLibraries(libraries) {
+            var container = document.getElementById('librariesList');
+            container.innerHTML = '';
+
+            libraries.forEach(function (lib) {
+                var row = document.createElement('div');
+                row.className = 'sf-library-row';
+
+                var name = document.createElement('span');
+                name.className = 'sf-library-name';
+                name.textContent = lib.Name;
+
+                var label = document.createElement('label');
+                label.style.display = 'flex';
+                label.style.alignItems = 'center';
+                label.style.gap = '8px';
+                label.style.cursor = 'pointer';
+
+                var checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = state.librarySettings[lib.Id] || false;
+                checkbox.addEventListener('change', function () {
+                    state.librarySettings[lib.Id] = this.checked;
+                });
+
+                var labelText = document.createElement('span');
+                labelText.textContent = 'Remove Specials';
+                labelText.style.fontSize = '0.9em';
+
+                label.appendChild(checkbox);
+                label.appendChild(labelText);
+                row.appendChild(name);
+                row.appendChild(label);
+                container.appendChild(row);
+            });
+
+            container.style.display = '';
+        }
+
+        function populateLibraryDropdown(libraries) {
+            var select = document.getElementById('showLibrarySelect');
+            while (select.options.length > 1) select.remove(1);
+            libraries.forEach(function (lib) {
+                var opt = document.createElement('option');
+                opt.value = lib.Id;
+                opt.textContent = lib.Name;
+                select.appendChild(opt);
+            });
+        }
+
+        // ── Shows ─────────────────────────────────────────────────────────────────
+
+        function loadShows(libraryId) {
+            if (!libraryId) return;
+
+            document.getElementById('selectLibraryMsg').style.display = 'none';
+            document.getElementById('showsLoading').style.display = '';
+            document.getElementById('showsList').style.display = 'none';
+            document.getElementById('noShowsMsg').style.display = 'none';
+            document.getElementById('showSearch').value = '';
+
+            apiGet('SpecialsFilter/Libraries/' + encodeURIComponent(libraryId) + '/Shows').then(function (shows) {
+                document.getElementById('showsLoading').style.display = 'none';
+
+                if (!shows || shows.length === 0) {
+                    document.getElementById('noShowsMsg').style.display = '';
+                    return;
+                }
+
+                shows.forEach(function (show) {
+                    if (show.Handling !== 0) {
+                        state.showSettings[show.Id] = show.Handling;
+                    }
+                });
+
+                allShows = shows;
+                renderShows(shows);
+            }).catch(function (err) {
+                document.getElementById('showsLoading').style.display = 'none';
+                console.error('[SpecialsFilter] Failed to load shows:', err);
+            });
+        }
+
+        function renderShows(shows) {
+            var container = document.getElementById('showsList');
+            container.innerHTML = '';
+
+            if (!shows || shows.length === 0) {
+                container.style.display = 'none';
+                document.getElementById('noShowsMsg').style.display = '';
+                return;
+            }
+
+            var header = document.createElement('div');
+            header.className = 'sf-shows-header';
+            header.innerHTML =
+                '<span>Show</span>' +
+                '<span class="sf-col-handling">Specials Handling</span>' +
+                '<span class="sf-col-specials">Episodes</span>';
+            container.appendChild(header);
+
+            shows.forEach(function (show) {
+                // Wrapper holds the row + the specials panel
+                var wrapper = document.createElement('div');
+
+                var row = document.createElement('div');
+                row.className = 'sf-show-row';
+                row.dataset.showId = show.Id;
+
+                var name = document.createElement('span');
+                name.className = 'sf-show-name';
+                name.textContent = show.Name;
+
+                var sel = document.createElement('select');
+                sel.className = 'emby-select-withcolor emby-select sf-col-handling';
+                sel.style.fontSize = '0.85em';
+
+                [
+                    { value: 0, label: 'Default (inherit library)' },
+                    { value: 1, label: 'Remove Specials' },
+                    { value: 2, label: 'Keep Specials' }
+                ].forEach(function (opt) {
+                    var o = document.createElement('option');
+                    o.value = opt.value;
+                    o.textContent = opt.label;
+                    sel.appendChild(o);
+                });
+
+                sel.value = state.showSettings.hasOwnProperty(show.Id) ? state.showSettings[show.Id] : show.Handling;
+                sel.addEventListener('change', function () {
+                    var val = parseInt(this.value, 10);
+                    if (val === 0) { delete state.showSettings[show.Id]; }
+                    else { state.showSettings[show.Id] = val; }
+                });
+
+                // Toggle button for per-episode specials panel
+                var toggleBtn = document.createElement('button');
+                toggleBtn.className = 'sf-toggle-specials sf-col-specials';
+                toggleBtn.textContent = '▶ Episodes';
+                toggleBtn.type = 'button';
+
+                var panel = document.createElement('div');
+                panel.className = 'sf-specials-panel';
+
+                toggleBtn.addEventListener('click', function () {
+                    var isOpen = panel.classList.toggle('open');
+                    toggleBtn.textContent = isOpen ? '▼ Episodes' : '▶ Episodes';
+                    if (isOpen && !panel.dataset.loaded) {
+                        panel.dataset.loaded = '1';
+                        loadSpecials(show.Id, panel);
+                    }
+                });
+
+                row.appendChild(name);
+                row.appendChild(sel);
+                row.appendChild(toggleBtn);
+                wrapper.appendChild(row);
+                wrapper.appendChild(panel);
+                container.appendChild(wrapper);
+            });
+
+            container.style.display = '';
+        }
+
+        // ── Specials episodes ─────────────────────────────────────────────────────
+
+        function loadSpecials(showId, panel) {
+            panel.innerHTML = '<p style="font-size:0.85em; opacity:0.7;">Loading…</p>';
+
+            apiGet('SpecialsFilter/Shows/' + encodeURIComponent(showId) + '/Specials').then(function (episodes) {
+                renderSpecials(showId, episodes, panel);
+            }).catch(function (err) {
+                panel.innerHTML = '<p style="font-size:0.85em; color:#f44336;">Failed to load specials.</p>';
+                console.error('[SpecialsFilter] Failed to load specials for show ' + showId, err);
+            });
+        }
+
+        function renderSpecials(showId, episodes, panel) {
+            panel.innerHTML = '';
+
+            if (!episodes || episodes.length === 0) {
+                panel.innerHTML = '<p class="sf-no-specials">No specials (Season 0) found for this show.</p>';
+                return;
+            }
+
+            var table = document.createElement('table');
+            table.className = 'sf-ep-table';
+            table.innerHTML =
+                '<thead><tr>' +
+                '<th class="col-ep">Ep</th>' +
+                '<th>Title</th>' +
+                '<th class="col-date">Premiered</th>' +
+                '<th class="col-remove">Remove</th>' +
+                '</tr></thead>';
+
+            var tbody = document.createElement('tbody');
+
+            episodes.forEach(function (ep) {
+                var tr = document.createElement('tr');
+                if (state.episodeBlacklist[ep.Id]) tr.className = 'sf-ep-blacklisted';
+
+                var epNum = ep.IndexNumber != null ? 'S00E' + String(ep.IndexNumber).padStart(2, '0') : '?';
+
+                var checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = !!state.episodeBlacklist[ep.Id];
+                checkbox.title = 'Always remove this episode';
+                checkbox.addEventListener('change', function () {
+                    if (this.checked) {
+                        state.episodeBlacklist[ep.Id] = true;
+                        tr.className = 'sf-ep-blacklisted';
+                    } else {
+                        delete state.episodeBlacklist[ep.Id];
+                        tr.className = '';
+                    }
+                });
+
+                var tdRemove = document.createElement('td');
+                tdRemove.className = 'col-remove';
+                tdRemove.appendChild(checkbox);
+
+                tr.innerHTML =
+                    '<td class="col-ep">' + escapeHtml(epNum) + '</td>' +
+                    '<td>' + escapeHtml(ep.Name) + '</td>' +
+                    '<td class="col-date">' + escapeHtml(formatDate(ep.PremiereDate)) + '</td>';
+                tr.appendChild(tdRemove);
+                tbody.appendChild(tr);
+            });
+
+            table.appendChild(tbody);
+            panel.appendChild(table);
+        }
+
+        function filterShows(searchText) {
+            var lower = searchText.toLowerCase();
+            var filtered = allShows.filter(function (s) {
+                return s.Name.toLowerCase().indexOf(lower) !== -1;
+            });
+            renderShows(filtered);
+        }
+
+        // ── Save ──────────────────────────────────────────────────────────────────
+
+        function saveConfig() {
+            var librarySettings = Object.keys(state.librarySettings).map(function (id) {
+                return { LibraryId: id, RemoveSpecials: state.librarySettings[id] };
+            });
+
+            var showSettings = Object.keys(state.showSettings).map(function (id) {
+                return { ShowId: id, Handling: state.showSettings[id] };
+            });
+
+            var episodeBlacklist = Object.keys(state.episodeBlacklist);
+
+            var statusEl = document.getElementById('saveStatus');
+            statusEl.textContent = 'Saving…';
+            statusEl.className = '';
+            statusEl.style.display = '';
+
+            apiPost('SpecialsFilter/Config', {
+                LibrarySettings: librarySettings,
+                ShowSettings: showSettings,
+                EpisodeBlacklist: episodeBlacklist
+            })
+            .then(function () {
+                statusEl.textContent = '✓ Settings saved successfully.';
+                statusEl.className = 'sf-status-ok';
+                setTimeout(function () { statusEl.style.display = 'none'; }, 3000);
+            })
+            .catch(function (err) {
+                console.error('[SpecialsFilter] Save failed:', err);
+                statusEl.textContent = '✗ Failed to save settings. Check the Jellyfin logs.';
+                statusEl.className = 'sf-status-err';
+            });
+        }
+
+        // ── Init ──────────────────────────────────────────────────────────────────
+
+        document.getElementById('SpecialsFilterConfigPage').addEventListener('pageshow', function () {
+            loadConfig();
+            loadLibraries();
+
+            document.getElementById('showLibrarySelect').addEventListener('change', function () {
+                allShows = [];
+                document.getElementById('showsList').innerHTML = '';
+                document.getElementById('showsList').style.display = 'none';
+                document.getElementById('noShowsMsg').style.display = 'none';
+                document.getElementById('selectLibraryMsg').style.display = 'none';
+                if (this.value) {
+                    loadShows(this.value);
+                } else {
+                    document.getElementById('selectLibraryMsg').style.display = '';
+                }
+            });
+
+            document.getElementById('showSearch').addEventListener('input', function () {
+                filterShows(this.value);
+            });
+
+            document.getElementById('saveBtn').addEventListener('click', saveConfig);
+        });
+    })();
+    </script>
+</div>
+</body>
+</html>

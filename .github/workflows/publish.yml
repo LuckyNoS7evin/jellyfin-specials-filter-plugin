@@ -1,0 +1,138 @@
+name: Publish Plugin
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Get metadata
+        id: meta
+        run: |
+          VERSION=$(grep -oP '(?<=<Version>)[^<]+' Jellyfin.Plugin.SpecialsFilter/Jellyfin.Plugin.SpecialsFilter.csproj)
+          TIMESTAMP=$(git log -1 --format="%cI")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "zip_name=specials-filter_${VERSION}.zip" >> $GITHUB_OUTPUT
+
+      - name: Build
+        run: dotnet build Jellyfin.Plugin.SpecialsFilter/Jellyfin.Plugin.SpecialsFilter.csproj -c Release
+
+      - name: Create meta.json
+        env:
+          CHANGELOG: ${{ github.event.head_commit.message }}
+        run: |
+          jq -n \
+            --arg category "General" \
+            --arg changelog "$CHANGELOG" \
+            --arg description "Removes specials (Season 0) from configured TV show libraries after each library scan. Configurable per library and per show." \
+            --arg guid "c7f2d3a1-4b8e-4f9d-a2c5-1e3f7b9d0e2a" \
+            --arg name "Specials Filter" \
+            --arg overview "Removes specials (Season 0) from configured TV show libraries after each library scan. Configurable per library and per show." \
+            --arg owner "LuckyNoS7evin" \
+            --arg targetAbi "10.11.6.0" \
+            --arg timestamp "${{ steps.meta.outputs.timestamp }}" \
+            --arg version "${{ steps.meta.outputs.version }}" \
+            '{category: $category, changelog: $changelog, description: $description, guid: $guid, name: $name, overview: $overview, owner: $owner, targetAbi: $targetAbi, timestamp: $timestamp, version: $version}' \
+            > /tmp/meta.json
+
+      - name: Create zip
+        run: |
+          cd Jellyfin.Plugin.SpecialsFilter/bin/Release/net9.0/
+          zip "/tmp/${{ steps.meta.outputs.zip_name }}" Jellyfin.Plugin.SpecialsFilter.dll
+          zip -j "/tmp/${{ steps.meta.outputs.zip_name }}" /tmp/meta.json
+
+      - name: Compute checksum
+        id: checksum
+        run: |
+          echo "value=$(md5sum /tmp/${{ steps.meta.outputs.zip_name }} | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+      - name: Deploy to gh-pages
+        env:
+          CHANGELOG: ${{ github.event.head_commit.message }}
+        run: |
+          BASE_URL="https://luckynos7evin.github.io/jellyfin-specials-filter-plugin"
+          VERSION="${{ steps.meta.outputs.version }}"
+          TIMESTAMP="${{ steps.meta.outputs.timestamp }}"
+          CHECKSUM="${{ steps.checksum.outputs.value }}"
+          ZIP_NAME="${{ steps.meta.outputs.zip_name }}"
+          ZIP_URL="$BASE_URL/releases/$ZIP_NAME"
+          GUID="c7f2d3a1-4b8e-4f9d-a2c5-1e3f7b9d0e2a"
+
+          NEW_VERSION=$(jq -n \
+            --arg v "$VERSION" \
+            --arg ts "$TIMESTAMP" \
+            --arg url "$ZIP_URL" \
+            --arg cs "$CHECKSUM" \
+            --arg cl "$CHANGELOG" \
+            '{version: $v, changelog: $cl, targetAbi: "10.11.6.0", sourceUrl: $url, checksum: $cs, timestamp: $ts}')
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git ls-remote --exit-code --heads origin gh-pages; then
+            git checkout gh-pages
+            git pull origin gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf . --quiet || true
+          fi
+
+          mkdir -p releases
+          cp "/tmp/$ZIP_NAME" releases/
+
+          if [ ! -f manifest.json ]; then
+            echo '[]' > manifest.json
+          fi
+
+          jq \
+            --argjson ver "$NEW_VERSION" \
+            --arg guid "$GUID" \
+            --arg name "Specials Filter" \
+            --arg desc "Removes specials (Season 0) from configured TV show libraries after each library scan. Configurable per library and per show." \
+            --arg owner "LuckyNoS7evin" \
+            --arg category "General" \
+            '
+            if (map(select(.guid == $guid)) | length) > 0 then
+              map(
+                if .guid == $guid then
+                  if ([.versions[] | select(.version == $ver.version)] | length) > 0 then
+                    .versions = [.versions[] | if .version == $ver.version then $ver else . end]
+                  else
+                    .versions = [$ver] + .versions
+                  end
+                else . end
+              )
+            else
+              . + [{
+                guid: $guid,
+                name: $name,
+                description: $desc,
+                overview: $desc,
+                owner: $owner,
+                category: $category,
+                imageUrl: "",
+                versions: [$ver]
+              }]
+            end
+            ' manifest.json > manifest.json.tmp && mv manifest.json.tmp manifest.json
+
+          git add manifest.json releases/
+          git diff --staged --quiet || git commit -m "Release $VERSION"
+          git push origin gh-pages
