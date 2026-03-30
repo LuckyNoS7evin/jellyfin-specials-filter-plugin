@@ -10,11 +10,11 @@
     "versions": [
       {
         "version": "1.0.0.0",
-        "changelog": "Fix workflow conditional to use env var instead of secrets\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+        "changelog": "Add workflow_dispatch and concurrency guard to prevent checksum races\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
         "targetAbi": "10.11.6.0",
         "sourceUrl": "https://luckynos7evin.github.io/jellyfin-specials-filter-plugin/releases/specials-filter_1.0.0.0.zip",
-        "checksum": "c8fe9e18f5702c6ae5cf88b96d90f5a1",
-        "timestamp": "2026-03-30T23:47:31+01:00"
+        "checksum": "c9fb353946ef3184f9fedc95d9594174",
+        "timestamp": "2026-03-30T23:53:19+01:00"
       }
     ]
   }
