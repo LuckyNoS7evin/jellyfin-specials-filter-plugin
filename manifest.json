@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.0.2",
+        "changelog": "Bump version to 1.0.0.2\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://luckynos7evin.github.io/jellyfin-specials-filter-plugin/releases/specials-filter_1.0.0.2.zip",
+        "checksum": "1a92b177e91d6e12a65941d07041b578",
+        "timestamp": "2026-03-31T00:29:16+01:00"
+      },
+      {
         "version": "1.0.0.1",
         "changelog": "Bump to 1.0.0.1; skip zip overwrite if version already published\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
         "targetAbi": "10.11.6.0",
