@@ -492,7 +492,9 @@
         function filterShows(searchText) {
             var lower = searchText.toLowerCase();
             var filtered = allShows.filter(function (s) {
-                return s.Name.toLowerCase().indexOf(lower) !== -1;
+                var matchesText = s.Name.toLowerCase().indexOf(lower) !== -1;
+                var matchesMissing = !showMissingOnly || s.HasMissingSpecials;
+                return matchesText && matchesMissing;
             });
             renderShows(filtered);
         }
@@ -555,6 +557,9 @@
 
         document.getElementById('missingOnlyFilter').addEventListener('change', function () {
             showMissingOnly = this.checked;
+            // Re-filter the shows list
+            filterShows(document.getElementById('showSearch').value);
+            // Also apply to any already-open specials panels
             document.querySelectorAll('.sf-specials-panel[data-loaded="1"]').forEach(function (panel) {
                 applyMissingFilter(panel);
             });

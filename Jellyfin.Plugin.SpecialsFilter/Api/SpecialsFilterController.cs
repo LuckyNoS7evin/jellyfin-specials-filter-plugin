@@ -38,6 +38,9 @@ public class ShowInfo
 
     /// <summary>Gets or sets the handling override for this show (0=Default, 1=Remove, 2=Keep).</summary>
     public int Handling { get; set; }
+
+    /// <summary>Gets or sets whether this show has at least one missing (virtual) special episode.</summary>
+    public bool HasMissingSpecials { get; set; }
 }
 
 /// <summary>
@@ -143,6 +146,19 @@ public class SpecialsFilterController : ControllerBase
         var config = Plugin.Instance!.Configuration;
         var showSettingsMap = config.ShowSettings.ToDictionary(s => s.ShowId, s => s.Handling);
 
+        // Single query for all virtual (missing) Season 0 episodes in the library.
+        var showsWithMissingSpecials = _libraryManager.GetItemList(new InternalItemsQuery
+        {
+            IncludeItemTypes = [BaseItemKind.Episode],
+            AncestorIds = [libraryGuid],
+            IsVirtualItem = true,
+            ParentIndexNumber = 0,
+            Recursive = true
+        })
+        .OfType<Episode>()
+        .Select(e => e.SeriesId.ToString())
+        .ToHashSet();
+
         var shows = _libraryManager.GetItemList(new InternalItemsQuery
         {
             IncludeItemTypes = [BaseItemKind.Series],
@@ -154,7 +170,8 @@ public class SpecialsFilterController : ControllerBase
         {
             Id = s.Id.ToString(),
             Name = s.Name ?? string.Empty,
-            Handling = (int)(showSettingsMap.TryGetValue(s.Id.ToString(), out var h) ? h : SpecialsHandling.Default)
+            Handling = (int)(showSettingsMap.TryGetValue(s.Id.ToString(), out var h) ? h : SpecialsHandling.Default),
+            HasMissingSpecials = showsWithMissingSpecials.Contains(s.Id.ToString())
         })
         .OrderBy(s => s.Name)
         .ToList();
