@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.0.7",
+        "changelog": "Hide shows with no missing specials when filter is active\n\nAdd HasMissingSpecials to ShowInfo, populated via a single bulk query\nfor virtual (LocationType=Virtual) Season 0 episodes in the library —\ntwo queries total regardless of library size.\n\nWhen 'Only show missing specials' is checked, the shows list is filtered\nto only shows with HasMissingSpecials=true. Text search and the missing\nfilter compose correctly. Already-open specials panels are still filtered\nat the episode level as before.\n\nBump version 1.0.0.6 -> 1.0.0.7\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://luckynos7evin.github.io/jellyfin-specials-filter-plugin/releases/specials-filter_1.0.0.7.zip",
+        "checksum": "bf163a7a47e81d58cfd6575dd92ca579",
+        "timestamp": "2026-04-01T20:20:03+01:00"
+      },
+      {
         "version": "1.0.0.6",
         "changelog": "Move 'Only show missing' to section-level checkbox\n\nReplace per-show filter bars with a single 'Only show missing specials'\ncheckbox placed below the Filter shows textbox. Toggling it immediately\nfilters all already-open specials panels, and newly opened panels respect\nthe current state. Checkbox resets on page navigation.\n\nBump version 1.0.0.5 -> 1.0.0.6\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
         "targetAbi": "10.11.6.0",
