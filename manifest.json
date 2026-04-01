@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.0.5",
+        "changelog": "Remove per-item event handler, add missing episode filter\n\n- Remove LibraryItemAddedHandler: the ItemAdded event fired once per\n  episode during scans, causing repeated removal runs. ILibraryPostScanTask\n  (SpecialsRemovalTask) covers all scan scenarios as Jellyfin has a single\n  scan path (ValidateMediaLibrary), so no coverage is lost.\n- Add Missing property to EpisodeInfo (LocationType == Virtual) so the\n  config UI can identify specials with no media file on disk.\n- Add 'Only show missing (N)' checkbox to the per-show specials panel;\n  only shown when at least one missing episode exists. Missing episodes\n  also get a faint '(missing)' badge in the title column.\n- Bump version 1.0.0.3 -> 1.0.0.5\n- Add .github/copilot-instructions.md\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://luckynos7evin.github.io/jellyfin-specials-filter-plugin/releases/specials-filter_1.0.0.5.zip",
+        "checksum": "65d156fd196c30a6ff3a1bc4fd65cbbf",
+        "timestamp": "2026-04-01T19:25:18+01:00"
+      },
+      {
         "version": "1.0.0.3",
         "changelog": "Fix show handling dropdown empty - serialize Handling as int not string\n\nJellyfin's JSON serializer outputs enums as strings (e.g. 'Default', 'Remove').\nThe UI compared against integers (0, 1, 2) causing no option to match and the\ndropdown appearing blank. Changed ShowInfo.Handling to int so it always\nserializes as a number matching the option values in the select element.\n\nBumps to 1.0.0.3.\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
         "targetAbi": "10.11.6.0",
