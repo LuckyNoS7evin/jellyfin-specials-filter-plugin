@@ -50,6 +50,11 @@
                         <input type="text" id="showSearch" is="emby-input" placeholder="Type to filter…" />
                     </div>
 
+                    <div style="max-width:400px; margin-bottom:1em; display:flex; align-items:center; gap:8px; font-size:0.9em;">
+                        <input type="checkbox" id="missingOnlyFilter" />
+                        <label for="missingOnlyFilter" style="cursor:pointer;">Only show missing specials</label>
+                    </div>
+
                     <div id="showsLoading" style="display:none;"><p>Loading shows…</p></div>
                     <div id="showsList" style="display:none;"></div>
                     <div id="noShowsMsg" style="display:none;"><p>No shows found in this library.</p></div>
@@ -169,6 +174,7 @@
         };
 
         var allShows = [];  // shows loaded for the currently selected library
+        var showMissingOnly = false;
 
         function escapeHtml(str) {
             if (!str) return '';
@@ -411,7 +417,7 @@
             });
         }
 
-        function applyMissingFilter(panel, showMissingOnly) {
+        function applyMissingFilter(panel) {
             var rows = panel.querySelectorAll('tbody tr');
             rows.forEach(function (tr) {
                 if (showMissingOnly && tr.dataset.missing !== '1') {
@@ -428,31 +434,6 @@
             if (!episodes || episodes.length === 0) {
                 panel.innerHTML = '<p class="sf-no-specials">No specials (Season 0) found for this show.</p>';
                 return;
-            }
-
-            var missingCount = episodes.filter(function (ep) { return ep.Missing; }).length;
-
-            // "Only show missing" filter — only render if there are missing episodes
-            if (missingCount > 0) {
-                var filterBar = document.createElement('div');
-                filterBar.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:0.85em;';
-
-                var filterCheckbox = document.createElement('input');
-                filterCheckbox.type = 'checkbox';
-                filterCheckbox.id = 'sf-missing-only-' + showId;
-
-                var filterLabel = document.createElement('label');
-                filterLabel.htmlFor = filterCheckbox.id;
-                filterLabel.textContent = 'Only show missing (' + missingCount + ')';
-                filterLabel.style.cursor = 'pointer';
-
-                filterCheckbox.addEventListener('change', function () {
-                    applyMissingFilter(panel, this.checked);
-                });
-
-                filterBar.appendChild(filterCheckbox);
-                filterBar.appendChild(filterLabel);
-                panel.appendChild(filterBar);
             }
 
             var table = document.createElement('table');
@@ -503,6 +484,9 @@
 
             table.appendChild(tbody);
             panel.appendChild(table);
+
+            // Apply the current global filter state immediately
+            applyMissingFilter(panel);
         }
 
         function filterShows(searchText) {
@@ -569,6 +553,13 @@
             filterShows(this.value);
         });
 
+        document.getElementById('missingOnlyFilter').addEventListener('change', function () {
+            showMissingOnly = this.checked;
+            document.querySelectorAll('.sf-specials-panel[data-loaded="1"]').forEach(function (panel) {
+                applyMissingFilter(panel);
+            });
+        });
+
         document.getElementById('saveBtn').addEventListener('click', saveConfig);
 
         document.getElementById('SpecialsFilterConfigPage').addEventListener('pageshow', function () {
@@ -584,6 +575,8 @@
             document.getElementById('noShowsMsg').style.display = 'none';
             document.getElementById('selectLibraryMsg').style.display = '';
             document.getElementById('showSearch').value = '';
+            document.getElementById('missingOnlyFilter').checked = false;
+            showMissingOnly = false;
 
             loadConfig();
             loadLibraries();
