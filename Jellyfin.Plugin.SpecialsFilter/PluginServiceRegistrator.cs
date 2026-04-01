@@ -2,7 +2,6 @@ using MediaBrowser.Controller;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Plugins;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 
 namespace Jellyfin.Plugin.SpecialsFilter;
 
@@ -16,7 +15,6 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     {
         serviceCollection.AddSingleton<SpecialsRemovalService>();
         serviceCollection.AddSingleton<ILibraryPostScanTask, SpecialsRemovalTask>();
-        serviceCollection.AddHostedService<LibraryItemAddedHandler>();
     }
 }
 

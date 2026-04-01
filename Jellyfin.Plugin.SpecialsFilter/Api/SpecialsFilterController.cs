@@ -59,6 +59,9 @@ public class EpisodeInfo
 
     /// <summary>Gets or sets whether this episode is on the removal blacklist.</summary>
     public bool Blacklisted { get; set; }
+
+    /// <summary>Gets or sets whether this episode has no media file on disk (virtual/missing item).</summary>
+    public bool Missing { get; set; }
 }
 
 /// <summary>
@@ -228,7 +231,8 @@ public class SpecialsFilterController : ControllerBase
                     Name = ep.Name ?? string.Empty,
                     IndexNumber = ep.IndexNumber,
                     PremiereDate = ep.PremiereDate,
-                    Blacklisted = blacklist.Contains(ep.Id.ToString())
+                    Blacklisted = blacklist.Contains(ep.Id.ToString()),
+                    Missing = ep.LocationType == LocationType.Virtual
                 });
             }
         }

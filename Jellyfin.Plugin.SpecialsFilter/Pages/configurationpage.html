@@ -411,12 +411,48 @@
             });
         }
 
+        function applyMissingFilter(panel, showMissingOnly) {
+            var rows = panel.querySelectorAll('tbody tr');
+            rows.forEach(function (tr) {
+                if (showMissingOnly && tr.dataset.missing !== '1') {
+                    tr.style.display = 'none';
+                } else {
+                    tr.style.display = '';
+                }
+            });
+        }
+
         function renderSpecials(showId, episodes, panel) {
             panel.innerHTML = '';
 
             if (!episodes || episodes.length === 0) {
                 panel.innerHTML = '<p class="sf-no-specials">No specials (Season 0) found for this show.</p>';
                 return;
+            }
+
+            var missingCount = episodes.filter(function (ep) { return ep.Missing; }).length;
+
+            // "Only show missing" filter — only render if there are missing episodes
+            if (missingCount > 0) {
+                var filterBar = document.createElement('div');
+                filterBar.style.cssText = 'display:flex; align-items:center; gap:8px; margin-bottom:8px; font-size:0.85em;';
+
+                var filterCheckbox = document.createElement('input');
+                filterCheckbox.type = 'checkbox';
+                filterCheckbox.id = 'sf-missing-only-' + showId;
+
+                var filterLabel = document.createElement('label');
+                filterLabel.htmlFor = filterCheckbox.id;
+                filterLabel.textContent = 'Only show missing (' + missingCount + ')';
+                filterLabel.style.cursor = 'pointer';
+
+                filterCheckbox.addEventListener('change', function () {
+                    applyMissingFilter(panel, this.checked);
+                });
+
+                filterBar.appendChild(filterCheckbox);
+                filterBar.appendChild(filterLabel);
+                panel.appendChild(filterBar);
             }
 
             var table = document.createElement('table');
@@ -433,6 +469,7 @@
 
             episodes.forEach(function (ep) {
                 var tr = document.createElement('tr');
+                if (ep.Missing) tr.dataset.missing = '1';
                 if (state.episodeBlacklist[ep.Id]) tr.className = 'sf-ep-blacklisted';
 
                 var epNum = ep.IndexNumber != null ? 'S00E' + String(ep.IndexNumber).padStart(2, '0') : '?';
@@ -455,9 +492,10 @@
                 tdRemove.className = 'col-remove';
                 tdRemove.appendChild(checkbox);
 
+                var missingBadge = ep.Missing ? ' <span style="font-size:0.78em; opacity:0.6; font-style:italic;">(missing)</span>' : '';
                 tr.innerHTML =
                     '<td class="col-ep">' + escapeHtml(epNum) + '</td>' +
-                    '<td>' + escapeHtml(ep.Name) + '</td>' +
+                    '<td>' + escapeHtml(ep.Name) + missingBadge + '</td>' +
                     '<td class="col-date">' + escapeHtml(formatDate(ep.PremiereDate)) + '</td>';
                 tr.appendChild(tdRemove);
                 tbody.appendChild(tr);
