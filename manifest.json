@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.0.6",
+        "changelog": "Move 'Only show missing' to section-level checkbox\n\nReplace per-show filter bars with a single 'Only show missing specials'\ncheckbox placed below the Filter shows textbox. Toggling it immediately\nfilters all already-open specials panels, and newly opened panels respect\nthe current state. Checkbox resets on page navigation.\n\nBump version 1.0.0.5 -> 1.0.0.6\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://luckynos7evin.github.io/jellyfin-specials-filter-plugin/releases/specials-filter_1.0.0.6.zip",
+        "checksum": "292a9033cdf65e683578076df299a51c",
+        "timestamp": "2026-04-01T19:37:58+01:00"
+      },
+      {
         "version": "1.0.0.5",
         "changelog": "Remove per-item event handler, add missing episode filter\n\n- Remove LibraryItemAddedHandler: the ItemAdded event fired once per\n  episode during scans, causing repeated removal runs. ILibraryPostScanTask\n  (SpecialsRemovalTask) covers all scan scenarios as Jellyfin has a single\n  scan path (ValidateMediaLibrary), so no coverage is lost.\n- Add Missing property to EpisodeInfo (LocationType == Virtual) so the\n  config UI can identify specials with no media file on disk.\n- Add 'Only show missing (N)' checkbox to the per-show specials panel;\n  only shown when at least one missing episode exists. Missing episodes\n  also get a faint '(missing)' badge in the title column.\n- Bump version 1.0.0.3 -> 1.0.0.5\n- Add .github/copilot-instructions.md\n\nCo-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>",
         "targetAbi": "10.11.6.0",
