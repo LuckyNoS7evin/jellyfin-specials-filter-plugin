@@ -269,82 +269,33 @@ public class SpecialsFilterController : ControllerBase
     {
         var config = Plugin.Instance!.Configuration;
         var libraryRemoveMap = config.LibrarySettings.ToDictionary(s => s.LibraryId, s => s.RemoveSpecials);
-        var showSettingsMap = config.ShowSettings
+
+        // Show IDs that have a non-default handling override.
+        var showOverrides = config.ShowSettings
             .Where(s => s.Handling != SpecialsHandling.Default)
             .ToDictionary(s => s.ShowId, s => s.Handling);
 
-        var libraries = _libraryManager.GetVirtualFolders()
-            .Where(f => f.CollectionType == CollectionTypeOptions.tvshows)
-            .Select(f => new SummaryLibraryInfo
-            {
-                Id = f.ItemId,
-                Name = f.Name,
-                RemoveSpecials = libraryRemoveMap.TryGetValue(f.ItemId, out var removeSpecials) && removeSpecials
-            })
-            .ToDictionary(l => l.Id);
-
-        SummaryShowInfo GetOrAddShow(SummaryLibraryInfo library, string showId, string showName, SpecialsHandling handling)
+        // Resolve the episode blacklist to series IDs upfront so we can look them
+        // up efficiently per library below.  We look up episodes via GetItemById
+        // only here (not per library), which is safe because episodes carry their
+        // own SeriesId property without needing a loaded parent chain.
+        var blacklistBySeriesId = new Dictionary<string, List<SummaryEpisodeInfo>>();
+        foreach (var episodeIdStr in config.EpisodeBlacklist)
         {
-            var show = library.Shows.FirstOrDefault(s => s.Id == showId);
-            if (show is not null)
-            {
-                show.Handling = (int)handling;
-                if (string.IsNullOrWhiteSpace(show.Name))
-                {
-                    show.Name = showName;
-                }
-
-                return show;
-            }
-
-            show = new SummaryShowInfo
-            {
-                Id = showId,
-                Name = showName,
-                Handling = (int)handling
-            };
-            library.Shows.Add(show);
-            return show;
-        }
-
-        foreach (var showSetting in config.ShowSettings.Where(s => s.Handling != SpecialsHandling.Default))
-        {
-            if (!Guid.TryParse(showSetting.ShowId, out var showGuid)
-                || _libraryManager.GetItemById(showGuid) is not Series show)
+            if (!Guid.TryParse(episodeIdStr, out var episodeGuid)
+                || _libraryManager.GetItemById(episodeGuid) is not Episode episode)
             {
                 continue;
             }
 
-            var libraryId = show.GetTopParent()?.Id.ToString();
-            if (libraryId is null || !libraries.TryGetValue(libraryId, out var library))
+            var seriesId = episode.SeriesId.ToString();
+            if (!blacklistBySeriesId.TryGetValue(seriesId, out var epList))
             {
-                continue;
+                epList = [];
+                blacklistBySeriesId[seriesId] = epList;
             }
 
-            GetOrAddShow(library, show.Id.ToString(), show.Name ?? string.Empty, showSetting.Handling);
-        }
-
-        foreach (var episodeId in config.EpisodeBlacklist)
-        {
-            if (!Guid.TryParse(episodeId, out var episodeGuid)
-                || _libraryManager.GetItemById(episodeGuid) is not Episode episode
-                || _libraryManager.GetItemById(episode.SeriesId) is not Series show)
-            {
-                continue;
-            }
-
-            var libraryId = show.GetTopParent()?.Id.ToString();
-            if (libraryId is null || !libraries.TryGetValue(libraryId, out var library))
-            {
-                continue;
-            }
-
-            var handling = showSettingsMap.TryGetValue(show.Id.ToString(), out var showHandling)
-                ? showHandling
-                : SpecialsHandling.Default;
-
-            var summaryShow = GetOrAddShow(library, show.Id.ToString(), show.Name ?? string.Empty, handling);
-            summaryShow.Episodes.Add(new SummaryEpisodeInfo
+            epList.Add(new SummaryEpisodeInfo
             {
                 Id = episode.Id.ToString(),
                 Name = episode.Name ?? string.Empty,
@@ -353,27 +304,79 @@ public class SpecialsFilterController : ControllerBase
             });
         }
 
-        foreach (var library in libraries.Values)
+        bool hasConfiguredShows = showOverrides.Count > 0 || blacklistBySeriesId.Count > 0;
+        var result = new List<SummaryLibraryInfo>();
+
+        foreach (var folder in _libraryManager.GetVirtualFolders()
+            .Where(f => f.CollectionType == CollectionTypeOptions.tvshows))
         {
-            foreach (var show in library.Shows)
+            bool libraryRemoves = libraryRemoveMap.TryGetValue(folder.ItemId, out var rm) && rm;
+
+            var summaryShows = new List<SummaryShowInfo>();
+
+            // When the library removes everything we don't need to enumerate shows.
+            if (!libraryRemoves && hasConfiguredShows
+                && Guid.TryParse(folder.ItemId, out var libraryGuid))
             {
-                show.Episodes = show.Episodes
-                    .OrderBy(e => e.IndexNumber ?? int.MaxValue)
-                    .ThenBy(e => e.Name)
-                    .ToList();
+                // Use AncestorIds so Jellyfin resolves the hierarchy correctly —
+                // GetTopParent() on items loaded via GetItemById is unreliable.
+                var showsInLibrary = _libraryManager.GetItemList(new InternalItemsQuery
+                {
+                    IncludeItemTypes = [BaseItemKind.Series],
+                    AncestorIds = [libraryGuid],
+                    Recursive = true
+                })
+                .OfType<Series>()
+                .Where(s => showOverrides.ContainsKey(s.Id.ToString())
+                         || blacklistBySeriesId.ContainsKey(s.Id.ToString()))
+                .ToList();
+
+                foreach (var show in showsInLibrary)
+                {
+                    var showId = show.Id.ToString();
+                    var handling = showOverrides.TryGetValue(showId, out var h) ? h : SpecialsHandling.Default;
+
+                    // Only include episodes if the show isn't already removing everything.
+                    var episodes = new List<SummaryEpisodeInfo>();
+                    if (handling != SpecialsHandling.Remove
+                        && blacklistBySeriesId.TryGetValue(showId, out var epList))
+                    {
+                        episodes = epList
+                            .OrderBy(e => e.IndexNumber ?? int.MaxValue)
+                            .ThenBy(e => e.Name)
+                            .ToList();
+                    }
+
+                    if (handling == SpecialsHandling.Remove || episodes.Count > 0)
+                    {
+                        summaryShows.Add(new SummaryShowInfo
+                        {
+                            Id = showId,
+                            Name = show.Name ?? string.Empty,
+                            Handling = (int)handling,
+                            Episodes = episodes
+                        });
+                    }
+                }
+
+                summaryShows = summaryShows.OrderBy(s => s.Name).ToList();
             }
 
-            library.Shows = library.Shows
-                .OrderBy(s => s.Name)
-                .ToList();
+            if (libraryRemoves || summaryShows.Count > 0)
+            {
+                result.Add(new SummaryLibraryInfo
+                {
+                    Id = folder.ItemId,
+                    Name = folder.Name,
+                    RemoveSpecials = libraryRemoves,
+                    Shows = summaryShows
+                });
+            }
         }
 
         return Ok(new SettingsSummaryResponse
         {
-            Libraries = libraries.Values
-                .Where(l => l.RemoveSpecials || l.Shows.Count > 0)
-                .OrderBy(l => l.Name)
-                .ToList()
+            Libraries = result.OrderBy(l => l.Name).ToList()
         });
     }
 
