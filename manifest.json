@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.0.9",
+        "changelog": "this should fix the issue with summary not loading",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://luckynos7evin.github.io/jellyfin-specials-filter-plugin/releases/specials-filter_1.0.0.9.zip",
+        "checksum": "2a922d59fca2a9a87d7684688c51e353",
+        "timestamp": "2026-04-11T15:30:01+01:00"
+      },
+      {
         "version": "1.0.0.8",
         "changelog": "Merge branch 'main' of https://github.com/LuckyNoS7evin/jellyfin-specials-filter-plugin",
         "targetAbi": "10.11.6.0",
