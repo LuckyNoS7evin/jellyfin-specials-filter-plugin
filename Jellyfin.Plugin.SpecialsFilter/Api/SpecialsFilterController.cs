@@ -154,16 +154,22 @@ public class SaveConfigRequest
 public class SpecialsFilterController : ControllerBase
 {
     private readonly ILibraryManager _libraryManager;
+    private readonly SpecialsRemovalService _removalService;
     private readonly ILogger<SpecialsFilterController> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SpecialsFilterController"/> class.
     /// </summary>
     /// <param name="libraryManager">Instance of the <see cref="ILibraryManager"/> interface.</param>
+    /// <param name="removalService">Instance of the <see cref="SpecialsRemovalService"/>.</param>
     /// <param name="logger">Instance of the <see cref="ILogger"/> interface.</param>
-    public SpecialsFilterController(ILibraryManager libraryManager, ILogger<SpecialsFilterController> logger)
+    public SpecialsFilterController(
+        ILibraryManager libraryManager,
+        SpecialsRemovalService removalService,
+        ILogger<SpecialsFilterController> logger)
     {
         _libraryManager = libraryManager;
+        _removalService = removalService;
         _logger = logger;
     }
 
@@ -473,6 +479,19 @@ public class SpecialsFilterController : ControllerBase
             config.ShowSettings.Length,
             config.EpisodeBlacklist.Length);
 
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Triggers specials removal immediately without waiting for a library scan.
+    /// </summary>
+    /// <returns>No content on success.</returns>
+    [HttpPost("Run")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RunNow()
+    {
+        _logger.LogInformation("[SpecialsFilter] Manual run triggered via API.");
+        await _removalService.RunForAllLibraries(new Progress<double>(), CancellationToken.None).ConfigureAwait(false);
         return NoContent();
     }
 }
