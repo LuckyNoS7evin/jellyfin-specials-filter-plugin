@@ -248,10 +248,17 @@
             });
         }
 
-        // ── Config (seed episode blacklist) ───────────────────────────────────────
+        // ── Config (seed show settings and episode blacklist) ─────────────────────
 
         function loadConfig() {
             apiGet('SpecialsFilter/Config').then(function (cfg) {
+                // Seed show settings so saves don't wipe overrides for libraries
+                // the user hasn't opened in the dropdown this session.
+                (cfg.ShowSettings || []).forEach(function (s) {
+                    if (s.Handling !== 0) {
+                        state.showSettings[s.ShowId] = s.Handling;
+                    }
+                });
                 (cfg.EpisodeBlacklist || []).forEach(function (id) {
                     state.episodeBlacklist[id] = true;
                 });
