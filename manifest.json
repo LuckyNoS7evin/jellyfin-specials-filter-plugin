@@ -9,6 +9,14 @@
     "imageUrl": "",
     "versions": [
       {
+        "version": "1.0.0.11",
+        "changelog": "Pr run now (#2)\n\n* Added a Run Now button instead of requiring a full library scan\n\n* run now version",
+        "targetAbi": "10.11.6.0",
+        "sourceUrl": "https://luckynos7evin.github.io/jellyfin-specials-filter-plugin/releases/specials-filter_1.0.0.11.zip",
+        "checksum": "f12392eed8561e877548b9fb73f63ed1",
+        "timestamp": "2026-04-11T16:32:15+01:00"
+      },
+      {
         "version": "1.0.0.10",
         "changelog": "Fix the issue where if you haven't loaded each library in the dropdown it removes the show config",
         "targetAbi": "10.11.6.0",
