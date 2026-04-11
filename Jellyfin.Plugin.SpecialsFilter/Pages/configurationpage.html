@@ -62,18 +62,26 @@
                 </div>
 
                 <!-- Save -->
-                <div style="margin-top:2em;">
-                    <button is="emby-button" type="button" id="saveBtn" class="raised button-submit block" style="max-width:220px;">
-                        <span>Save Settings</span>
-                    </button>
-                    <div id="saveStatus" style="display:none; margin-top:0.75em; font-size:0.9em;"></div>
+                <div style="margin-top:2em; display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+                    <div>
+                        <button is="emby-button" type="button" id="saveBtn" class="raised button-submit block" style="max-width:220px;">
+                            <span>Save Settings</span>
+                        </button>
+                        <div id="saveStatus" style="display:none; margin-top:0.75em; font-size:0.9em;"></div>
+                    </div>
+                    <div>
+                        <button is="emby-button" type="button" id="runNowBtn" class="raised block" style="max-width:220px;">
+                            <span>Run Now</span>
+                        </button>
+                        <div id="runStatus" style="display:none; margin-top:0.75em; font-size:0.9em;"></div>
+                    </div>
                 </div>
 
                 <!-- Current Settings Summary -->
                 <div class="verticalSection" style="margin-top:2.5em;">
                     <h3 class="sectionTitle" style="font-size:1.05em; margin-bottom:0.4em;">Current Settings</h3>
                     <p style="opacity:0.75; font-size:0.9em; margin-bottom:1em;">
-                        What will be removed after the next library scan.
+                        What will be removed after the next scan or Run Now.
                     </p>
                     <div id="summaryLoading" style="display:none;"><p style="font-size:0.9em; opacity:0.6;">Loading…</p></div>
                     <div id="summaryContent"></div>
@@ -703,6 +711,32 @@
             });
         }
 
+        // ── Run Now ───────────────────────────────────────────────────────────────
+
+        function runNow() {
+            var btn = document.getElementById('runNowBtn');
+            var statusEl = document.getElementById('runStatus');
+
+            btn.disabled = true;
+            statusEl.textContent = '⏳ Running…';
+            statusEl.className = '';
+            statusEl.style.display = '';
+
+            apiPost('SpecialsFilter/Run', {})
+            .then(function () {
+                statusEl.textContent = '✓ Done.';
+                statusEl.className = 'sf-status-ok';
+                btn.disabled = false;
+                setTimeout(function () { statusEl.style.display = 'none'; }, 4000);
+            })
+            .catch(function (err) {
+                console.error('[SpecialsFilter] Run failed:', err);
+                statusEl.textContent = '✗ Run failed. Check the Jellyfin logs.';
+                statusEl.className = 'sf-status-err';
+                btn.disabled = false;
+            });
+        }
+
         // ── Init ──────────────────────────────────────────────────────────────────
 
         // Attach static event listeners once at script load time (not inside pageshow,
@@ -735,6 +769,7 @@
         });
 
         document.getElementById('saveBtn').addEventListener('click', saveConfig);
+        document.getElementById('runNowBtn').addEventListener('click', runNow);
 
         document.getElementById('SpecialsFilterConfigPage').addEventListener('pageshow', function () {
             // Reset state and UI on every navigation to the page so saved settings always reload fresh.
