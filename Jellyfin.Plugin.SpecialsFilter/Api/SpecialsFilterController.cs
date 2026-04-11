@@ -68,6 +68,69 @@ public class EpisodeInfo
 }
 
 /// <summary>
+/// Summary of the currently configured removals, resolved to library/show/episode names.
+/// </summary>
+public class SettingsSummaryResponse
+{
+    /// <summary>Gets or sets the configured libraries and their relevant show/episode details.</summary>
+    public List<SummaryLibraryInfo> Libraries { get; set; } = [];
+}
+
+/// <summary>
+/// Summary details for a single TV library.
+/// </summary>
+public class SummaryLibraryInfo
+{
+    /// <summary>Gets or sets the library item ID.</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the library display name.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets whether this library removes specials by default.</summary>
+    public bool RemoveSpecials { get; set; }
+
+    /// <summary>Gets or sets the configured shows within this library that matter for the summary.</summary>
+    public List<SummaryShowInfo> Shows { get; set; } = [];
+}
+
+/// <summary>
+/// Summary details for a single show.
+/// </summary>
+public class SummaryShowInfo
+{
+    /// <summary>Gets or sets the show item ID.</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the show display name.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the current configured handling for this show.</summary>
+    public int Handling { get; set; }
+
+    /// <summary>Gets or sets the blacklisted episodes for this show.</summary>
+    public List<SummaryEpisodeInfo> Episodes { get; set; } = [];
+}
+
+/// <summary>
+/// Summary details for a blacklisted special episode.
+/// </summary>
+public class SummaryEpisodeInfo
+{
+    /// <summary>Gets or sets the episode item ID.</summary>
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the episode display name.</summary>
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Gets or sets the episode number within the specials season.</summary>
+    public int? IndexNumber { get; set; }
+
+    /// <summary>Gets or sets the episode premiere date.</summary>
+    public DateTime? PremiereDate { get; set; }
+}
+
+/// <summary>
 /// Request body for saving plugin configuration.
 /// </summary>
 public class SaveConfigRequest
@@ -193,6 +256,124 @@ public class SpecialsFilterController : ControllerBase
             LibrarySettings = config.LibrarySettings,
             ShowSettings = config.ShowSettings,
             EpisodeBlacklist = config.EpisodeBlacklist
+        });
+    }
+
+    /// <summary>
+    /// Gets a named summary of the current effective removal configuration.
+    /// </summary>
+    /// <returns>Configured libraries, shows and blacklisted episodes.</returns>
+    [HttpGet("Summary")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public ActionResult<SettingsSummaryResponse> GetSummary()
+    {
+        var config = Plugin.Instance!.Configuration;
+        var libraryRemoveMap = config.LibrarySettings.ToDictionary(s => s.LibraryId, s => s.RemoveSpecials);
+        var showSettingsMap = config.ShowSettings
+            .Where(s => s.Handling != SpecialsHandling.Default)
+            .ToDictionary(s => s.ShowId, s => s.Handling);
+
+        var libraries = _libraryManager.GetVirtualFolders()
+            .Where(f => f.CollectionType == CollectionTypeOptions.tvshows)
+            .Select(f => new SummaryLibraryInfo
+            {
+                Id = f.ItemId,
+                Name = f.Name,
+                RemoveSpecials = libraryRemoveMap.TryGetValue(f.ItemId, out var removeSpecials) && removeSpecials
+            })
+            .ToDictionary(l => l.Id);
+
+        SummaryShowInfo GetOrAddShow(SummaryLibraryInfo library, string showId, string showName, SpecialsHandling handling)
+        {
+            var show = library.Shows.FirstOrDefault(s => s.Id == showId);
+            if (show is not null)
+            {
+                show.Handling = (int)handling;
+                if (string.IsNullOrWhiteSpace(show.Name))
+                {
+                    show.Name = showName;
+                }
+
+                return show;
+            }
+
+            show = new SummaryShowInfo
+            {
+                Id = showId,
+                Name = showName,
+                Handling = (int)handling
+            };
+            library.Shows.Add(show);
+            return show;
+        }
+
+        foreach (var showSetting in config.ShowSettings.Where(s => s.Handling != SpecialsHandling.Default))
+        {
+            if (!Guid.TryParse(showSetting.ShowId, out var showGuid)
+                || _libraryManager.GetItemById(showGuid) is not Series show)
+            {
+                continue;
+            }
+
+            var libraryId = show.GetTopParent()?.Id.ToString();
+            if (libraryId is null || !libraries.TryGetValue(libraryId, out var library))
+            {
+                continue;
+            }
+
+            GetOrAddShow(library, show.Id.ToString(), show.Name ?? string.Empty, showSetting.Handling);
+        }
+
+        foreach (var episodeId in config.EpisodeBlacklist)
+        {
+            if (!Guid.TryParse(episodeId, out var episodeGuid)
+                || _libraryManager.GetItemById(episodeGuid) is not Episode episode
+                || _libraryManager.GetItemById(episode.SeriesId) is not Series show)
+            {
+                continue;
+            }
+
+            var libraryId = show.GetTopParent()?.Id.ToString();
+            if (libraryId is null || !libraries.TryGetValue(libraryId, out var library))
+            {
+                continue;
+            }
+
+            var handling = showSettingsMap.TryGetValue(show.Id.ToString(), out var showHandling)
+                ? showHandling
+                : SpecialsHandling.Default;
+
+            var summaryShow = GetOrAddShow(library, show.Id.ToString(), show.Name ?? string.Empty, handling);
+            summaryShow.Episodes.Add(new SummaryEpisodeInfo
+            {
+                Id = episode.Id.ToString(),
+                Name = episode.Name ?? string.Empty,
+                IndexNumber = episode.IndexNumber,
+                PremiereDate = episode.PremiereDate
+            });
+        }
+
+        foreach (var library in libraries.Values)
+        {
+            foreach (var show in library.Shows)
+            {
+                show.Episodes = show.Episodes
+                    .OrderBy(e => e.IndexNumber ?? int.MaxValue)
+                    .ThenBy(e => e.Name)
+                    .ToList();
+            }
+
+            library.Shows = library.Shows
+                .OrderBy(s => s.Name)
+                .ToList();
+        }
+
+        return Ok(new SettingsSummaryResponse
+        {
+            Libraries = libraries.Values
+                .Where(l => l.RemoveSpecials || l.Shows.Count > 0)
+                .OrderBy(l => l.Name)
+                .ToList()
         });
     }
 

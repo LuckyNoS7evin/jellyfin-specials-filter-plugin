@@ -68,6 +68,16 @@
                     </button>
                     <div id="saveStatus" style="display:none; margin-top:0.75em; font-size:0.9em;"></div>
                 </div>
+
+                <!-- Current Settings Summary -->
+                <div class="verticalSection" style="margin-top:2.5em;">
+                    <h3 class="sectionTitle" style="font-size:1.05em; margin-bottom:0.4em;">Current Settings</h3>
+                    <p style="opacity:0.75; font-size:0.9em; margin-bottom:1em;">
+                        What will be removed after the next library scan.
+                    </p>
+                    <div id="summaryLoading" style="display:none;"><p style="font-size:0.9em; opacity:0.6;">Loading…</p></div>
+                    <div id="summaryContent"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -162,6 +172,43 @@
         .sf-ep-blacklisted td { opacity: 0.5; }
         .sf-status-ok { color: #4caf50; }
         .sf-status-err { color: #f44336; }
+        /* Summary section */
+        .sf-summary-empty {
+            font-size: 0.9em;
+            opacity: 0.55;
+            font-style: italic;
+        }
+        .sf-summary-item {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            padding: 5px 0;
+            font-size: 0.93em;
+            border-bottom: 1px solid #2a2a2a;
+        }
+        .sf-summary-item:last-child { border-bottom: none; }
+        .sf-summary-library { font-weight: 600; padding-top: 10px; }
+        .sf-summary-library:first-child { padding-top: 0; }
+        .sf-summary-show { padding-left: 20px; }
+        .sf-summary-episode { padding-left: 44px; font-size: 0.88em; opacity: 0.85; }
+        .sf-summary-label { flex: 1; }
+        .sf-summary-badge {
+            font-size: 0.76em;
+            padding: 2px 7px;
+            border-radius: 3px;
+            white-space: nowrap;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .sf-badge-remove { background: rgba(244,67,54,0.18); color: #f44336; }
+        .sf-badge-episodes { background: rgba(255,152,0,0.18); color: #ff9800; }
+        .sf-summary-block {
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            padding: 4px 14px 8px;
+            background: rgba(255,255,255,0.02);
+            max-width: 640px;
+        }
     </style>
 
     <script type="text/javascript">
@@ -499,6 +546,120 @@
             renderShows(filtered);
         }
 
+        // ── Summary ───────────────────────────────────────────────────────────────
+
+        function loadSummary() {
+            document.getElementById('summaryLoading').style.display = '';
+            document.getElementById('summaryContent').innerHTML = '';
+
+            apiGet('SpecialsFilter/Summary').then(function (data) {
+                document.getElementById('summaryLoading').style.display = 'none';
+                renderSummary(data);
+            }).catch(function (err) {
+                document.getElementById('summaryLoading').style.display = 'none';
+                document.getElementById('summaryContent').innerHTML =
+                    '<p style="font-size:0.85em; color:#f44336;">Failed to load summary.</p>';
+                console.error('[SpecialsFilter] Failed to load summary:', err);
+            });
+        }
+
+        function renderSummary(data) {
+            var container = document.getElementById('summaryContent');
+            container.innerHTML = '';
+
+            var libraries = (data && data.Libraries) || [];
+
+            // Only libraries that are actually removing something
+            var active = libraries.filter(function (lib) {
+                if (lib.RemoveSpecials) return true;
+                return lib.Shows.some(function (show) {
+                    return show.Handling === 1 || show.Episodes.length > 0;
+                });
+            });
+
+            if (active.length === 0) {
+                container.innerHTML = '<p class="sf-summary-empty">No specials are currently configured for removal.</p>';
+                return;
+            }
+
+            var block = document.createElement('div');
+            block.className = 'sf-summary-block';
+
+            active.forEach(function (lib) {
+                // Library row
+                var libRow = document.createElement('div');
+                libRow.className = 'sf-summary-item sf-summary-library';
+
+                var libLabel = document.createElement('span');
+                libLabel.className = 'sf-summary-label';
+                libLabel.textContent = lib.Name;
+
+                libRow.appendChild(libLabel);
+
+                if (lib.RemoveSpecials) {
+                    var badge = document.createElement('span');
+                    badge.className = 'sf-summary-badge sf-badge-remove';
+                    badge.textContent = 'Removing all specials';
+                    libRow.appendChild(badge);
+                }
+
+                block.appendChild(libRow);
+
+                // If the library removes everything, don't drill into shows
+                if (lib.RemoveSpecials) return;
+
+                lib.Shows.forEach(function (show) {
+                    // Skip shows that are only a "Keep" override with no blacklisted episodes
+                    if (show.Handling === 2 && show.Episodes.length === 0) return;
+                    // Skip default shows with no blacklisted episodes
+                    if (show.Handling !== 1 && show.Episodes.length === 0) return;
+
+                    var showRow = document.createElement('div');
+                    showRow.className = 'sf-summary-item sf-summary-show';
+
+                    var showLabel = document.createElement('span');
+                    showLabel.className = 'sf-summary-label';
+                    showLabel.textContent = show.Name;
+                    showRow.appendChild(showLabel);
+
+                    if (show.Handling === 1) {
+                        var showBadge = document.createElement('span');
+                        showBadge.className = 'sf-summary-badge sf-badge-remove';
+                        showBadge.textContent = 'Removing all specials';
+                        showRow.appendChild(showBadge);
+                    } else if (show.Episodes.length > 0) {
+                        var epBadge = document.createElement('span');
+                        epBadge.className = 'sf-summary-badge sf-badge-episodes';
+                        epBadge.textContent = show.Episodes.length + ' episode' + (show.Episodes.length === 1 ? '' : 's');
+                        showRow.appendChild(epBadge);
+                    }
+
+                    block.appendChild(showRow);
+
+                    // If show removes all, don't drill into episodes
+                    if (show.Handling === 1) return;
+
+                    show.Episodes.forEach(function (ep) {
+                        var epRow = document.createElement('div');
+                        epRow.className = 'sf-summary-item sf-summary-episode';
+
+                        var epNum = ep.IndexNumber != null
+                            ? 'S00E' + String(ep.IndexNumber).padStart(2, '0') + ' – '
+                            : '';
+
+                        var epLabel = document.createElement('span');
+                        epLabel.className = 'sf-summary-label';
+                        epLabel.textContent = epNum + ep.Name;
+                        epRow.appendChild(epLabel);
+
+                        block.appendChild(epRow);
+                    });
+                });
+            });
+
+            container.appendChild(block);
+        }
+
         // ── Save ──────────────────────────────────────────────────────────────────
 
         function saveConfig() {
@@ -526,6 +687,7 @@
                 statusEl.textContent = '✓ Settings saved successfully.';
                 statusEl.className = 'sf-status-ok';
                 setTimeout(function () { statusEl.style.display = 'none'; }, 3000);
+                loadSummary();
             })
             .catch(function (err) {
                 console.error('[SpecialsFilter] Save failed:', err);
@@ -585,6 +747,7 @@
 
             loadConfig();
             loadLibraries();
+            loadSummary();
         });
     })();
     </script>
